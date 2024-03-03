@@ -1,0 +1,1216 @@
+setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
+.libPaths()
+library(Seurat)
+library(patchwork)
+library(ggplot2)
+library(tidyverse)
+# 数据读入-------------------------------------------------------------
+# Define a function to read data and create Seurat objects
+read_and_create_seurat <- function(folder) {
+  seurat.data <- Read10X(data.dir = folder)
+  seurat.obj <-
+    CreateSeuratObject(counts = seurat.data, project = basename(folder))
+  return(seurat.obj)
+}
+
+# Set the parent directory path where all data folders are located
+parent.dir <- "~/work/23-12-9_52WFru_singlecell_GSE218300/data"
+
+# Get the names of all subdirectories
+folders <-
+  list.dirs(
+    path = parent.dir,
+    full.names = TRUE,
+    recursive = FALSE
+  )
+
+# Initialize an empty list to store Seurat objects
+seurat.list <- list()
+
+# Loop through each subdirectory to import data
+for (folder in folders) {
+  if (dir.exists(folder)) {
+    seurat.list[[basename(folder)]] <- read_and_create_seurat(folder)
+  } else {
+    warning(paste("Data directory does not exist:", folder))
+  }
+}
+
+# Print the names of imported Seurat objects
+print(names(seurat.list))
+
+# Create a new folder to store Seurat objects
+save.dir <- "SeuratObjects"
+dir.create(save.dir)
+
+# Save each Seurat object from the list to a separate file
+for (name in names(seurat.list)) {
+  file.name <- file.path(save.dir, paste0("Seurat_", name, ".RData"))
+  save(
+    list = name,
+    file = file.name,
+    envir = list2env(seurat.list)
+  )
+}
+
+# Optionally, save the entire list of Seurat objects
+save.file <- file.path(save.dir, "seurat_list.RData")
+save(seurat.list, file = save.file)
+# 完成数据读取----------数据过滤------------------===================================================
+# Load the list of Seurat objects
+save.dir <- "SeuratObjects"
+load(file.path(save.dir, "seurat_list.RData"))
+
+# Merge Seurat objects
+combined_seurat <- merge(seurat.list[[1]], y = seurat.list[-1])
+
+# Extract the middle part of the 'orig.ident' in meta.data and add it to a new column 'group'
+combined_seurat$group <-
+  gsub(".*_([^_]+)_.*", "\\1", combined_seurat$orig.ident)
+
+# Calculate the percentage of mitochondrial genes
+combined_seurat[["percent.mt"]] <-
+  PercentageFeatureSet(combined_seurat, pattern = "^MT-")
+
+# Visualize QC metrics
+P1 <-
+  VlnPlot(
+    combined_seurat,
+    features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+    ncol = 3
+  )
+combined_seurat <-
+  subset(combined_seurat, subset = nFeature_RNA > 200 &
+    nFeature_RNA < 2500 & percent.mt < 5)
+P2 <-
+  VlnPlot(
+    combined_seurat,
+    features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+    ncol = 3
+  )
+plot_violin <- P1 / P2
+plot_violin
+# Save violin plot with current date in the filename
+ggsave(
+  paste0("violinplot_", Sys.Date(), ".png"),
+  plot_violin,
+  width = 10,
+  height = 10
+)
+
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_af_raw_merge_fillter_",
+    Sys.Date(),
+    ".RData"
+  )
+)
+# 数据读取完毕，进行数据降维标准化，先尝试不整合看分析效果----------------------------
+# Normalize data, find variable features, and perform linear dimension reduction
+load(
+  "~/work/23-12-9_52WFru_singlecell_GSE218300/SeuratObjects/combined_seurat_af_raw_merge_fillter_2024-03-01.RData"
+)
+
+library(Seurat)
+# library(SeuratData)
+library(SeuratWrappers)
+# library(Azimuth)
+library(ggplot2)
+library(patchwork)
+options(future.globals.maxSize = 1e9)
+
+# combined_seurat[["RNA"]] <- split(combined_seurat[["RNA"]], f = combined_seurat$orig.ident)
+combined_seurat
+
+combined_seurat <- NormalizeData(combined_seurat)
+combined_seurat <- FindVariableFeatures(combined_seurat)
+combined_seurat <- ScaleData(combined_seurat)
+combined_seurat <- RunPCA(combined_seurat)
+
+combined_seurat <-
+  FindNeighbors(combined_seurat, dims = 1:30, reduction = "pca")
+combined_seurat <-
+  FindClusters(combined_seurat,
+    resolution = 2,
+    cluster.name = "unintegrated_clusters"
+  )
+
+combined_seurat <-
+  RunUMAP(
+    combined_seurat,
+    dims = 1:30,
+    reduction = "pca",
+    reduction.name = "umap.unintegrated"
+  )
+# visualize by batch and cell type annotation
+# cell type annotations were previously added by Azimuth
+DimPlot(
+  combined_seurat,
+  reduction = "integrated.cca",
+  group.by = c("orig.ident", "seurat_clusters"),
+  label = T
+)
+
+# 整合看效果，前面已经有不整合的，步骤就是多一个整合layers---------------------
+# 整合layers-CCA-RPCA------------------------
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = CCAIntegration,
+  orig.reduction = "pca",
+  new.reduction = "integrated.cca",
+  verbose = FALSE
+)
+
+
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = RPCAIntegration,
+  orig.reduction = "pca",
+  new.reduction = "integrated.rpca",
+  verbose = FALSE
+)
+# 保存临时整合结果，整合layers-CCA-RPCA
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combinedN2_",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+# 整合layers-harmony
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = HarmonyIntegration,
+  orig.reduction = "pca",
+  new.reduction = "harmony",
+  verbose = FALSE
+)
+# 保存临时整合结果，整合layers-CCA-RPCA-harmony
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combinedN3_cca-rcca-harmony",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+# 整合layers-mmn
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = FastMNNIntegration,
+  new.reduction = "integrated.mnn",
+  verbose = FALSE
+)
+# 保存临时整合结果，整合layers-CCA-RPCA-harmony-mmn
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combinedN4_mnn",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+# SCVI包安装准备，这部分其实是SCVI用在R中的教程，不过SCVI有bug====================================
+
+# install.packages("Seurat")
+# install.packages("reticulate")
+# install.packages("cowplot")
+# install.packages("devtools")
+# devtools::install_github("satijalab/seurat-data")
+# SeuratData::InstallData("pbmc3k")
+# install.packages(
+#   "https://seurat.nygenome.org/src/contrib/ifnb.SeuratData_3.0.0.tar.gz",
+#   repos = NULL,
+#   type = "source"
+# )
+# SeuratData::InstallData("ifnb")
+# devtools::install_github("cellgeni/sceasy")
+
+
+load(
+  "SeuratObjects/combined_seurat_combined_umap_N4--SCT-N3-cca-N3-louvain_slm_muti2024-03-02.RData"
+)
+
+# library(reticulate)
+
+# 这可以指定python
+# path_to_python <- "/home/rstudio/work/miniconda3/envs/scvi-env-2/bin/python"
+# use_python(path_to_python)
+library(Seurat)
+library(SeuratWrappers)
+# 整合前设定最大的对象可以避免报错
+options(future.globals.maxSize = 1e9)
+
+# library(reticulate)
+# library(anndata)
+# install.packages("anndata")
+# library(sceasy)
+
+#
+# # library(SeuratData)
+# remotes::install_github('satijalab/seurat-wrappers')
+# BiocManager::install(c("LoomExperiment", "SingleCellExperiment"))
+# devtools::install_github("cellgeni/sceasy")
+
+# conda用这个方法会好一点最好先有conda指定再查询python位置，不然容易锁定
+# Sys.which("python")
+library(reticulate)
+use_condaenv("/home/rstudio/work/anaconda3/envs/scvi-env")
+# 尝试了机械上的bioinfo的anaconda
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = scVIIntegration,
+  new.reduction = "integrated.scvi",
+  conda_env = "../anaconda3/envs/scvi-env",
+  verbose = FALSE
+)
+
+# 尝试了机械上的bioinfo的miniconda
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = scVIIntegration,
+  new.reduction = "integrated.scvi",
+  conda_env = "/home/rstudio/work/miniconda3/envs/scvi-env",
+  verbose = FALSE
+)
+# 如果成功了的话就保存命名为N5 SCVI
+save.dir <- "SeuratObjects"
+save(combined_seurat, file = paste0(save.dir, "/combined_seurat_combinedN5_scvi", Sys.Date(), ".RData"))
+
+# 用cca整合来找neighbor和cluster-获得了cca-cluster-分辨率为2的聚类，名字为cca_clusters
+
+# 整合确定reduction_
+combined_seurat <-
+  FindNeighbors(combined_seurat, reduction = "integrated.cca", dims = 1:30)
+combined_seurat <-
+  FindClusters(combined_seurat,
+    resolution = 2,
+    cluster.name = "cca_clusters"
+  )
+
+# 1 cca整合来画了umap_cca,这里画umap图，然后用来源来看整合效果，此处是在确定要用什么整合的方法-------------------------------
+combined_seurat <-
+  RunUMAP(
+    combined_seurat,
+    reduction = "integrated.cca",
+    dims = 1:30,
+    reduction.name = "umap.cca"
+  )
+p1 <- DimPlot(
+  combined_seurat,
+  reduction = "umap.cca",
+  group.by = c("orig.ident", "cca_clusters"),
+  combine = FALSE,
+  label.size = 2
+)
+
+# combined_seurat <- FindNeighbors(combined_seurat, reduction = "integrated.scvi", dims = 1:30)
+# combined_seurat <- FindClusters(combined_seurat, resolution = 2, cluster.name = "scvi_clusters")
+# combined_seurat <- RunUMAP(combined_seurat, reduction = "integrated.scvi", dims = 1:30, reduction.name = "umap.scvi")
+# p2 <- DimPlot(
+#   combined_seurat,
+#   reduction = "umap.scvi",
+#   group.by = c("orig.ident", "scvi_clusters"),
+#   combine = FALSE, label.size = 2
+# )
+
+# 2 rpca整合---------------------------
+combined_seurat <-
+  FindNeighbors(combined_seurat, reduction = "integrated.rpca", dims = 1:30)
+combined_seurat <-
+  FindClusters(combined_seurat,
+    resolution = 2,
+    cluster.name = "rpca_clusters"
+  )
+combined_seurat <-
+  RunUMAP(
+    combined_seurat,
+    reduction = "integrated.rpca",
+    dims = 1:30,
+    reduction.name = "umap.rpca"
+  )
+p3 <- DimPlot(
+  combined_seurat,
+  reduction = "umap.rpca",
+  group.by = c("orig.ident", "rpca_clusters"),
+  combine = FALSE,
+  label.size = 2
+)
+
+# 3 harmony整合---------------------------------
+combined_seurat <-
+  FindNeighbors(combined_seurat, reduction = "harmony", dims = 1:30)
+combined_seurat <-
+  FindClusters(combined_seurat,
+    resolution = 2,
+    cluster.name = "harmony_clusters"
+  )
+combined_seurat <-
+  RunUMAP(
+    combined_seurat,
+    reduction = "harmony",
+    dims = 1:30,
+    reduction.name = "umap.harmony"
+  )
+p4 <- DimPlot(
+  combined_seurat,
+  reduction = "umap.harmony",
+  group.by = c("orig.ident", "harmony_clusters"),
+  combine = FALSE,
+  label.size = 2
+)
+
+# 4 mnn-------------------------------------
+combined_seurat <-
+  FindNeighbors(combined_seurat, reduction = "integrated.mnn", dims = 1:30)
+combined_seurat <-
+  FindClusters(combined_seurat,
+    resolution = 2,
+    cluster.name = "mnn_clusters"
+  )
+combined_seurat <-
+  RunUMAP(
+    combined_seurat,
+    reduction = "integrated.mnn",
+    dims = 1:30,
+    reduction.name = "umap.mnn"
+  )
+p5 <- DimPlot(
+  combined_seurat,
+  reduction = "umap.mnn",
+  group.by = c("orig.ident", "mnn_clusters"),
+  combine = FALSE,
+  label.size = 2
+)
+
+library(patchwork)
+# p1 + p2 / p3 + p4 / p5
+# p1 + p3 / p4 + p5
+# 这里的图片形式因为采用了combine=FALSE，所以是两张图分来画出来的，结合
+# wrap的话比较合适，后期采用loupe的方法查看就不需要画出来比较了
+
+wrap_plots(c(p4, p5), ncol = 2, byrow = F) + NoLegend()
+
+
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+wrap_plots(c(p4, p5), ncol = 2, byrow = F) + NoLegend()
+ggsave(
+  paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4_harmony-mnn",
+    Sys.Date(),
+    ".png"
+  ),
+  width = 10,
+  height = 10
+)
+
+wrap_plots(c(p1, p3), ncol = 2, byrow = F) + NoLegend()
+
+p1
+ggsave(
+  paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4_cca-rcpa",
+    Sys.Date(),
+    ".png"
+  ),
+  width = 10,
+  height = 10
+)
+
+# 前面采用了seruat的整合教程，用除了SCVI的方法做了整合，之前试着用SCTtransform后
+# 再整合有bug，应该是启用了SCT之后就不容易回去了，而且如果join之后再spit也不太容易，
+# 如果要做转换的话可以注意保存join之前的版本
+
+
+# SCTtransform====完成了常规标准化下的所有整合方法--------------------------------------------------------
+combined_seurat
+options(future.globals.maxSize = 3e+09)
+combined_seurat <- SCTransform(combined_seurat)
+combined_seurat <- RunPCA(combined_seurat, verbose = F)
+
+
+
+
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = RPCAIntegration,
+  normalization.method = "SCT",
+  orig.reduction = "pca",
+  new.reduction = "integrated.sct.rpca",
+  verbose = F
+)
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N1-rpca",
+    Sys.Date(),
+    ".RData"
+  )
+)
+# hamony
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = HarmonyIntegration,
+  normalization.method = "SCT",
+  orig.reduction = "pca",
+  new.reduction = "integrated.sct.harmony",
+  verbose = F
+)
+
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N2-harmony",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+
+
+# cca
+combined_seurat <- IntegrateLayers(
+  object = combined_seurat,
+  method = CCAIntegration,
+  normalization.method = "SCT",
+  orig.reduction = "pca",
+  new.reduction = "integrated.sct.cca",
+  verbose = F
+)
+
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N3-cca",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+
+
+# # FastMNN
+# combined_seurat <- IntegrateLayers(
+#   object = combined_seurat,
+#   method = FastMNNIntegration,
+#   normalization.method = "SCT",orig.reduction = "pca", new.reduction = "integrated.sct.mnn",
+#   verbose = F
+# )
+
+# save(combined_seurat,file = paste0(save.dir,"/combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N4-mnn", Sys.Date(), ".RData"))
+# # scVI
+# combined_seurat <- IntegrateLayers(
+#   object = combined_seurat,
+#   method = scVIIntegration,
+#   normalization.method = "SCT",orig.reduction = "pca", new.reduction = "integrated.sct.scvi",
+#   verbose = F
+# )
+
+# scVI
+# combined_seurat <- IntegrateLayers(
+#   object = combined_seurat,
+#   method = scVIIntegration,
+#   normalization.method = "SCT",orig.reduction = "pca", new.reduction = "integrated.sct.scvi",
+#   verbose = F,conda_env = "/home/rstudio/work/miniconda3/envs/scvi-env-2"
+# )
+#
+# save(combined_seurat,file = paste0(save.dir,"/combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N5-scvi", Sys.Date(), ".RData"))
+
+# SCT转换后，整合用了harmony，cca两种，接下来是探究了Findcluster的不同算法，默认为1louvein，
+# 后续2，3，4，slm,mitilouvein,leiden做了尝试，不同分辨率也尝试0.1-2
+combined_seurat <-
+  FindNeighbors(combined_seurat, dims = 1:30, reduction = "integrated.sct.rpca")
+combined_seurat <-
+  FindClusters(combined_seurat,
+    resolution = 2,
+    cluster.name = "sct_rcca_clusters"
+  )
+combined_seurat <-
+  RunUMAP(
+    combined_seurat,
+    reduction = "integrated.sct.rpca",
+    dims = 1:30,
+    reduction.name = "umap.sct.rpca"
+  )
+
+p1 <- DimPlot(
+  combined_seurat,
+  reduction = "umap.sct.rpca",
+  group.by = c("orig.ident", "sct_cca_clusters"),
+  combine = FALSE,
+  label.size = 2
+)
+
+
+#
+p2 <- DimPlot(
+  combined_seurat,
+  reduction = "umap.sct.harmony",
+  group.by = c("orig.ident", "sct_harmony_clusters"),
+  combine = FALSE, label.size = 2
+)
+
+# 一些旧代码，应该是为了比一下整合方法的差异，能不能把来源的细胞都整合起来，
+# 不过可以用louprbower，这里P1,2还是不太好，应该命名清楚，这里比较harmony和cca整合对样本的样子。
+library(patchwork)
+wrap_plots(c(p1, p2), ncol = 2, byrow = F)
+library(ggplot2)
+# save.dir <-
+ggsave(
+  paste0(
+    "combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N2-cca-harmony",
+    Sys.Date(),
+    ".png"
+  ),
+  width = 10,
+  height = 10
+)
+
+
+
+# 此处FindNeighBors,把后续的cluster的纬度换为了harmony整合。
+combined_seurat <-
+  FindNeighbors(combined_seurat, dims = 1:30, reduction = "integrated.sct.harmony")
+
+# 这是后面加进去的，不同的cluster算法如何避免记住参数，把其包装出来-------------------------------------------
+Reselute_clusters_slm <- function(combined_seurat, resolution) {
+  combined_seurat <-
+    FindClusters(combined_seurat,
+      resolution = resolution,
+      # cluster.name = "sct_harmony_2_clusters",
+      algorithm = 3
+    )
+  return(combined_seurat)
+}
+
+Reselute_clusters_louvain_muti <-
+  function(combined_seurat, resolution) {
+    combined_seurat <-
+      FindClusters(combined_seurat,
+        resolution = resolution,
+        # cluster.name = "sct_harmony_2_clusters",
+        algorithm = 2
+      )
+    return(combined_seurat)
+  }
+
+Reselute_clusters_leiden <- function(combined_seurat, resolution) {
+  combined_seurat <-
+    FindClusters(combined_seurat,
+      resolution = resolution,
+      # cluster.name = "sct_harmony_2_clusters",
+      algorithm = 4
+    )
+  return(combined_seurat)
+}
+
+seq(0.5, 2, by = 0.1)
+combined_seurat <-
+  Reselute_clusters_slm(combined_seurat, seq(0.5, 2, by = 0.1))
+
+
+# 通过gusb函数替换含有"SCT_snn_res"的列名，这里先检查再确定怎么换
+colnames(combined_seurat@meta.data) <-
+  gsub(
+    "SCT_snn_res",
+    "SCT_snn_slm_res",
+    colnames(combined_seurat@meta.data)
+  )
+
+# 确认替换成功
+colnames(combined_seurat@meta.data)
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4--SCT-N3-cca-N2-louvain_slm",
+    Sys.Date(),
+    ".RData"
+  )
+)
+combined_seurat <-
+  Reselute_clusters_louvain_muti(combined_seurat, seq(0.5, 2, by = 0.1))
+
+# 通过gusb函数替换含有"SCT_snn_res"的列名
+colnames(combined_seurat@meta.data) <-
+  gsub(
+    "SCT_snn_res",
+    "SCT_snn_muti_louvain_res",
+    colnames(combined_seurat@meta.data)
+  )
+
+# 确认替换成功
+colnames(combined_seurat@meta.data)
+
+
+# 这是没考虑分辨率的时候
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4--SCT-N3-cca-N3-louvain_slm_muti",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+# 第一次试leiden，最高分辨率，崩了
+combined_seurat <-
+  FindClusters(combined_seurat,
+    resolution = 2,
+    # cluster.name = "sct_harmony_2_clusters",
+    algorithm = 4
+  )
+
+
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4-N3-anatoedd-cluster-sct-harmony-ladden-diff-resolution-v1",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+library("loupeR")
+create_loupe_from_seurat(
+  combined_seurat,
+  output_name = paste0(
+    "SeuratObjects/combined_seurat_combined_umap_N4--SCT-N3-cca-N3-louvain_slm_muti_",
+    format(Sys.Date(), "%Y-%m-%d")
+  )
+)
+
+combined_seurat <- Reselute_clusters_leiden(combined_seurat, 0.5)
+
+
+colnames(combined_seurat@meta.data)
+
+# 保存了harmony的SCTumap，不过可以看看有啥参数，这个可能是设定了dims
+combined_seurat <-
+  RunUMAP(
+    combined_seurat,
+    reduction = "integrated.sct.harmony",
+    dims = 1:30,
+    reduction.name = "umap.2.sct.harmony"
+  )
+
+# 通过gusb函数替换含有"SCT_snn_res"的列名
+colnames(combined_seurat@meta.data) <-
+  gsub(
+    "SCT_snn_res",
+    "SCT_snn_Louvain_res",
+    colnames(combined_seurat@meta.data)
+  )
+
+# 确认替换成功
+colnames(combined_seurat@meta.data)
+
+
+# 把不同分辨率的画树，宽度是按照50个细胞减半，高度是按照分辨率的数量，0.5-2是15个，
+# 这样不会重叠，如果文件存在会报错，想一想有啥方法，也许把后缀改为时间好一点
+tree_cluster <-
+  function(combined_seurat,
+           prefix,
+           width = 25,
+           height = 16) {
+    library(clustree)
+    # install.packages("clustree")
+    p_cluster <-
+      clustree(combined_seurat, prefix = prefix)
+
+    # # install.packages("ploty")
+    # install.packages("plotly")
+    #
+    # library(plotly)
+    #
+    # ggplotly(p_cluster)
+
+    # width = 25
+    # height = 16
+    ggsave(
+      width = width,
+      height = height,
+      paste0(
+        prefix,
+        "width_",
+        width,
+        "_",
+        "height",
+        height,
+        "_",
+        Sys.Date(),
+        ".pdf"
+      )
+    )
+    return(p_cluster)
+  }
+
+colnames(combined_seurat@meta.data)
+
+p_cluster_muti_louvain <-
+  tree_cluster(combined_seurat,
+    prefix = "SCT_snn_muti_louvain_res.",
+    width = 25,
+    height = 16
+  )
+
+p_cluster_slm <-
+  tree_cluster(combined_seurat,
+    prefix = "SCT_snn_slm_res.",
+    width = 25,
+    height = 16
+  )
+
+p_cluster_louvain <-
+  tree_cluster(combined_seurat,
+    prefix = "SCT_snn_Louvain_res.",
+    width = 25,
+    height = 16
+  )
+
+# 列出p_cluster开头的对象名，保存他们
+p_cluster_object <- ls(pattern = "p_cluster")
+p_cluster_object
+
+# 建立文件夹
+dir.create("plotobject")
+# 保存到plotobject文件夹下，命名为cluster_muti_res.RData
+save(
+  list = ls(pattern = "p_cluster"),
+  file = paste0(
+    "plotobject/cluster_muti_louvain_res",
+    Sys.Date(),
+    ".RData"
+  ),
+  compress = TRUE
+)
+
+load(gzfile("plotobject/cluster_muti_louvain_res2024-03-02.RData.gz"))
+
+
+
+
+combined_seurat <-
+  FindNeighbors(combined_seurat, dims = 1:30, reduction = "integrated.sct.cca")
+combined_seurat <-
+  FindClusters(combined_seurat,
+    resolution = 2,
+    cluster.name = "sct_cca_clusters"
+  )
+combined_seurat <-
+  RunUMAP(
+    combined_seurat,
+    reduction = "integrated.sct.cca",
+    dims = 1:30,
+    reduction.name = "umap.sct.cca"
+  )
+p3 <- DimPlot(
+  combined_seurat,
+  reduction = "umap",
+  group.by = c("orig.ident", "sct_cca_clusters"),
+  combine = FALSE,
+  label.size = 2
+)
+
+ggsave(
+  paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N3-cca",
+    Sys.Date(),
+    ".png"
+  ),
+  width = 10,
+  height = 10
+)
+# combined_seurat <- FindNeighbors(combined_seurat, dims = 1:30, reduction = "integrated.sct.mnn")
+# combined_seurat <- FindClusters(combined_seurat, resolution = 2,cluster.name = "sct_mnn_clusters")
+#
+# p4 <- DimPlot(
+#   combined_seurat,
+#   reduction = "umap",
+#   group.by = c("orig.ident", "sct_mnn_clusters"),
+#   combine = FALSE, label.size = 2
+# )
+
+# ggsave(paste0(save.dir,"/combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N3-cca-mnn", Sys.Date(), ".png"), width = 10, height = 10)
+save(
+  combined_seurat,
+  file = paste0(
+    save.dir,
+    "/combined_seurat_combined_umap_N4--rpca_harmony_cca_rcpa-mnn-SCT-N3-cca-mnn-umap",
+    Sys.Date(),
+    ".RData"
+  )
+)
+
+#
+#
+#
+# combined_seurat <- NormalizeData(combined_seurat) %>%
+#   FindVariableFeatures() %>%
+#   SCTransform() %>%
+#   RunPCA()
+#
+# # Perform non-linear dimension reduction
+# combined_seurat <- RunUMAP(combined_seurat, dims = 1:20)
+#
+# # Visualize UMAP results
+# p3 <-
+#   DimPlot(combined_seurat,
+#           reduction = "umap",
+#           group.by = c("orig.ident", "group"))
+# p3
+# Integrate data layers using CCA
+combined_seurat <-
+  IntegrateLayers(
+    object = combined_seurat,
+    method = CCAIntegration,
+    normalization.method = "SCT",
+    verbose = F
+  )
+
+# Find neighbors and clusters
+combined_seurat <-
+  FindNeighbors(combined_seurat, reduction = "integrated.dr", dims = 1:30) %>%
+  FindClusters(resolution = 0.6)
+
+# Run UMAP again on the integrated data
+combined_seurat <-
+  RunUMAP(combined_seurat, dims = 1:30, reduction = "integrated.dr")
+?  ? RunUMAP
+# Visualize UMAP results post integration
+p4 <-
+  DimPlot(combined_seurat,
+    reduction = "umap",
+    group.by = c("orig.ident", "group")
+  )
+p4
+# Compare UMAP plots and save them with the current date in the filename
+umap_compare_plot <- p3 / p4
+umap_compare_plot
+ggsave(
+  paste0("umap_merged_intergrated_", Sys.Date(), ".png"),
+  umap_compare_plot,
+  width = 10,
+  height = 10
+)
+save(combined_seurat,
+  file = paste0("combined_seurat_", Sys.Date(), ".RData")
+)
+
+
+
+
+FeaturePlot(
+  combined_seurat,
+  features = c("Adgre1", "Mrc1", "Lcn2"),
+  split.by = "group"
+)
+
+FeaturePlot(combined_seurat,
+  features = c("Adgre1", "Mrc1", "Lcn2")
+)
+
+head(combined_seurat@meta.data)
+
+pdf("umap.pdf")
+DimPlot(combined_seurat,
+  group.by = c("seurat_clusters"),
+  label = TRUE
+)
+
+dev.off()
+combined_seurat@commands
+# str(combined_seurat)
+# Prepare the Seurat object for differential expression analysis
+combined_seurat <- PrepSCTFindMarkers(combined_seurat)
+Idents(combined_seurat)
+
+# After the preparation, you can try running FindAllMarkers again
+markers <-
+  FindAllMarkers(
+    object = combined_seurat,
+    only.pos = TRUE,
+    min.pct = 0.25,
+    logfc.threshold = 0.25
+  )
+
+cluster1_markers <-
+  FindMarkers(
+    object = combined_seurat,
+    ident.1 = 1,
+    min.pct = 0.25
+  )
+
+cluster2.markers <-
+  FindMarkers(combined_seurat, ident.1 = 2, ident.2 = c(7))
+head(cluster2.markers)
+
+
+markers %>%
+  group_by(cluster) %>%
+  dplyr::filter(avg_log2FC > 1)
+
+markers %>%
+  group_by(cluster) %>%
+  dplyr::filter(avg_log2FC > 1) %>%
+  slice_head(n = 10) %>%
+  ungroup() -> top10
+
+top10
+write.csv(top10, file = "top10.csv")
+combined_seurat@meta.data
+View(top10)
+dev.off()
+pdf("FeaturePlot.pdf")
+FeaturePlot(
+  combined_seurat,
+  features = c("Adgre1", "Mrc1", "Lcn2"),
+  split.by = c("group")
+)
+dev.off()
+
+markers %>%
+  group_by(cluster) %>%
+  dplyr::filter(avg_log2FC > 1) %>%
+  slice_head(n = 3) %>%
+  ungroup() -> top3
+
+
+DoHeatmap(combined_seurat, features = top3$gene) + NoLegend()
+
+ggsave("heatmap.png", width = 10, height = 10)
+
+# 细胞注释，尝试浏览器导出=================
+# import the library
+# loupeR::setup()
+
+
+# # 我想跑tSNE
+combined_seurat <- RunTSNE(combined_seurat)
+# # 画tSNE图
+tryCatch(
+  {
+    save(combined_seurat, file = "SeuratObjects/combined_seurat_tsne_2024-02-24.RData")
+  },
+  error = function(e) {
+    print(e)
+  }
+)
+
+save(combined_seurat, file = "SeuratObjects/combined_seurat_tsne_2024-02-24.RData")
+DimPlot(combined_seurat, reduction = "tsne", group.by = "seurat_clusters")
+save(combined_seurat, file = "SeuratObjects/combined_seurat_tsne_2024-02-24.RData")
+# # convert the SeuratObject named `seurat_obj` to a Loupe file
+
+library("loupeR")
+create_loupe_from_seurat(combined_seurat, output_name = "combined_seurat_tsne_defalt")
+#
+?  ? celldex
+
+
+
+# --------------------------自动注释----------------------------
+load(
+  "~/work/23-12-9_52WFru_singlecell_GSE218300/SeuratObjects/combined_seurat_2024-02-24.RData"
+)
+library(Seurat)
+library(celldex)
+ref_blu <- BlueprintEncodeData()
+ref_m <- MouseRNAseqData()
+ref_immgen <- ImmGenData()
+
+# # 用SingleR进行细胞注释
+
+
+combined_seurat[["RNA"]] <- JoinLayers(combined_seurat[["RNA"]])
+save(combined_seurat, file = "SeuratObjects/combined_seurat_tsne_joined_2024-02-24.RData")
+sce_combined_seurat <- as.SingleCellExperiment(combined_seurat)
+save(sce_combined_seurat, file = "SeuratObjects/sce_combined_seurat_2024-02-24.RData")
+library(SingleR)
+
+
+pred_m <-
+  SingleR(
+    test = sce_combined_seurat,
+    ref = ref_m,
+    labels = ref_m$label.main
+  )
+table(pred_m$labels)
+plotScoreHeatmap(pred_m)
+combined_seurat[["MouseRNA_SingleR.labels"]] <- pred_m$labels
+save(combined_seurat, file = "SeuratObjects/combined_seurat_anotated_mouse_v1_tsne_joined_2024-02-24.RData")
+DimPlot(
+  combined_seurat,
+  group.by = "MouseRNA_SingleR.labels",
+  reduction = "umap",
+  label = TRUE
+)
+
+pred_blu <-
+  SingleR(
+    test = sce_combined_seurat,
+    ref = ref_blu,
+    labels = ref_blu$label.main
+  )
+table(pred_blu$labels)
+plotScoreHeatmap(pred_blu)
+combined_seurat[["Blueprint_SingleR.labels"]] <- pred_blu$labels
+DimPlot(
+  combined_seurat,
+  group.by = "Blueprint_SingleR.labels",
+  reduction = "umap",
+  label = TRUE
+)
+save(combined_seurat, file = "SeuratObjects/combined_seurat_anotated_mouse_blu_v2_tsne_joined_2024-02-24.RData")
+
+pred_immgen <-
+  SingleR(
+    test = sce_combined_seurat,
+    ref = ref_immgen,
+    labels = ref_immgen$label.main
+  )
+table(pred_immgen$labels)
+plotScoreHeatmap(pred_immgen)
+combined_seurat[["ImmGen_SingleR.labels"]] <- pred_immgen$labels
+DimPlot(
+  combined_seurat,
+  group.by = "ImmGen_SingleR.labels",
+  reduction = "umap",
+  label = TRUE
+)
+save(combined_seurat, file = "SeuratObjects/combined_seurat_anotated_mouse_blu_immgen_v3_tsne_joined_2024-02-24.RData")
+
+ref_hpa <- celldex::HumanPrimaryCellAtlasDat()
+pred_hpa <-
+  SingleR(
+    test = sce_combined_seurat,
+    ref = ref_hpa,
+    labels = ref_hpa$label.main
+  )
+table(pred_hpa$labels)
+plotScoreHeatmap(pred_hpa)
+combined_seurat[["HPA_SingleR.labels"]] <- pred_hpa$labels
+DimPlot(
+  combined_seurat,
+  group.by = "SingleR.labels_HPA",
+  reduction = "umap",
+  label = TRUE
+)
+save(combined_seurat, file = "SeuratObjects/combined_seurat_anotated_mouse_blu_immgen_hpa_v4_tsne_joined_2024-02-24.RData")
+library("loupeR")
+create_loupe_from_seurat(combined_seurat, output_name = "combined_seurat_combined_umap_N4--SCT-N3-cca-N3-louvain_slm_muti")
+
+pred_immgen_fine <-
+  SingleR(
+    test = sce_combined_seurat,
+    ref = ref_immgen,
+    labels = ref_immgen$label.fine
+  )
+table(pred_immgen_fine$labels)
+plotScoreHeatmap(pred_immgen_fine)
+combined_seurat[["ImmGen_fine_SingleR.labels"]] <-
+  pred_immgen_fine$labels
+DimPlot(combined_seurat, group.by = "SingleR.labels_ImmGen_fine", reduction = "umap") + NoLegend()
+
+
+# save(combined_seurat, file = "SeuratObjects/combined_seurat_anotated_mouse_blu_immgen_hpa_v5_fine_tsne_joined_2024-02-24.RData")
+save(
+  combined_seurat,
+  file = paste0(
+    "SeuratObjects/combined_seurat_combined_umap_N4--SCT-N3-cca-N3-louvain_slm_muti",
+    format(Sys.Date(), "%Y-%m-%d"),
+    ".RData"
+  )
+)
+
+library("loupeR")
+create_loupe_from_seurat(
+  combined_seurat,
+  output_name = paste0(
+    "SeuratObjects/combined_seurat_combined_umap_N4--SCT-N3-cca-N3-louvain_slm_muti_",
+    format(Sys.Date(), "%Y-%m-%d")
+  )
+)
+
+
+# 首先，确保annotation文件夹存在，如果不存在则创建
+if (!dir.exists("annotation")) {
+  dir.create("annotation")
+}
+
+# 列出工作环境中所有以'pred'开头的对象的名称
+pred_objects <- ls(pattern = "^pred")
+
+# 使用save()函数保存这些对象
+# 假设我们想要将文件保存为'pred_objects.RData'
+save(list = pred_objects, file = "annotation/pred_objects.RData")
+
+ref_objects <- ls(pattern = "^ref")
+
+# 使用save()函数保存这些对象
+# 假设我们想要将文件保存为'ref_objects.RData'
+save(list = ref_objects, file = "annotation/ref_objects.RData")
+
+
+# -----------------探索细胞数量-----------
+load(
+  "~/work/23-12-9_52WFru_singlecell_GSE218300/SeuratObjects/combined_seurat_anotated_mouse_blu_immgen_hpa_v5_fine_tsne_joined_2024-02-24.RData"
+)
+
+library(Seurat)
+# 探索seurat对象
+ls()
+combined_seurat
+# 查看细胞数量
+Cells(combined_seurat)
+dim(combined_seurat)
+# [1] 16999 41502
+nrow(combined_seurat)
+genes <- rownames(combined_seurat)
+# 查看gene以MT开头的基因
+mt_genes <- grep("^MT-", genes)
+
+
+colnames(combined_seurat)
+ncol(combined_seurat)
+
+
+# 双细胞检测----------------
+remotes::install_github("chris-mcginnis-ucsf/DoubletFinder")
+library(DoubletFinder)
+?  ? DoubletFinder
+# 从Seurat对象中提取数据
+#
+# # 分开数据进行重新整合
+# load(
+#   "~/work/23-12-9_52WFru_singlecell_GSE218300/SeuratObjects/combined_seurat_anotated_mouse_blu_immgen_hpa_v5_fine_tsne_joined_2024-02-24.RData"
+# )
+# combined_seurat[["RNA"]] <- split(combined_seurat[["RNA"]], f = combined_seurat$orig.ident)
+# # Splitting ‘counts’, ‘data’ layers. Not splitting . If you would like to split other layers, set in `layers` argument.
+# Layers(combined_seurat)
