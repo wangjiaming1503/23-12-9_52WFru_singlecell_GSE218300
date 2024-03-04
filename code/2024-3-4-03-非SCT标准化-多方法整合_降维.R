@@ -108,8 +108,9 @@ options(future.globals.maxSize = 1e9)
 # devtools::install_github("cellgeni/sceasy")
 
 # conda用这个方法会好一点最好先有conda指定再查询python位置，不然容易锁定
-# Sys.which("python")
+Sys.which("python")
 library(reticulate)
+use_virtualenv('./.venv', required=TRUE)
 use_condaenv("/home/rstudio/work/anaconda3/envs/scvi-env")
 # 尝试了机械上的bioinfo的anaconda
 combined_seurat <- IntegrateLayers(
