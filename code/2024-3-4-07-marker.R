@@ -1,8 +1,10 @@
+
+library(httpgd)
 DimPlot(combined_seurat,
-  group.by = c("seurat_clusters"),
+  group.by = c("SCT_snn_harmony_slm_res.2"),
   label = TRUE
 )
-
+colnames(combined_seurat@meta.data)
 dev.off()
 combined_seurat@commands
 # str(combined_seurat)
