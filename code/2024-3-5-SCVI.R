@@ -59,6 +59,7 @@ combined_seurat <- IntegrateLayers(
   method = scVIIntegration,
   new.reduction = "integrated.scvi",
   conda_env = "/home/rstudio/work/miniforge3/envs/scvi-env-4",
+  conda_env = "/home/rstudio/work/miniforge3/envs/scvi-env-4",
   verbose = FALSE
 )
 
