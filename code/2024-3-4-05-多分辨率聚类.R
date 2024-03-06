@@ -4,7 +4,6 @@ Reselute_clusters_slm <- function(combined_seurat, resolution) {
   combined_seurat <-
     FindClusters(combined_seurat,
       resolution = resolution,
-      # cluster.name = "sct_harmony_2_clusters",
       algorithm = 3
     )
   return(combined_seurat)
@@ -15,7 +14,6 @@ Reselute_clusters_louvain_muti <-
     combined_seurat <-
       FindClusters(combined_seurat,
         resolution = resolution,
-        # cluster.name = "sct_harmony_2_clusters",
         algorithm = 2
       )
     return(combined_seurat)
@@ -25,7 +23,6 @@ Reselute_clusters_leiden <- function(combined_seurat, resolution) {
   combined_seurat <-
     FindClusters(combined_seurat,
       resolution = resolution,
-      # cluster.name = "sct_harmony_2_clusters",
       algorithm = 4
     )
   return(combined_seurat)

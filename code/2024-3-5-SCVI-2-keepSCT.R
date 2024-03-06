@@ -1,5 +1,5 @@
 setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
-.libPaths("/home/rstudio/R/x86_64-pc-linux-gnu-library/4.3_host")
+.libPaths("/home/rstudio/R/x86_64-pc-linux-gnu-library/4.3")
 .libPaths()
 library(Seurat)
 library(SeuratWrappers)
@@ -7,7 +7,7 @@ options(future.globals.maxSize = 1e9)
 library(sceasy)
 library(reticulate)
 library(anndata)
-library(ggplot2)
+
 get_time <- function(my.tz = "Asia/Shanghai") {
   # 获取当前时间，并按照指定时区和格式化字符串
   datetime <- format(Sys.time(), "%Y-%m-%d-%H-%M", tz = my.tz)
@@ -297,21 +297,13 @@ colnames(combined_seurat@meta.data) <-
     colnames(combined_seurat@meta.data)
   )
 colnames(combined_seurat@meta.data)
-#无SCT保留版本
-# save(combined_seurat, file = paste0(
-#   save.dir,
-#   "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-withoutsct-addmeta-SCVI-intergraed-umap-N1-slm",
-#   Sys.Date(),
-#   ".RData"
-# ))
-
-#有SCT保留版本
 save(combined_seurat, file = paste0(
   save.dir,
-  "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-keepsct-SCVI-intergraed-umap-add-learn-N1-slm",
+  "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-withoutsct-addmeta-SCVI-intergraed-umap-N1-slm",
   Sys.Date(),
   ".RData"
 ))
+
 
 combined_seurat <-
   Reselute_clusters_louvain(combined_seurat, resolution)
@@ -328,16 +320,10 @@ colnames(combined_seurat@meta.data) <-
 colnames(combined_seurat@meta.data)
 save(combined_seurat, file = paste0(
   save.dir,
-  "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-keepsct-SCVI-intergraed-umap-add-learn-N2-slm-louvain",
+  "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-withoutsct-addmeta-SCVI-intergraed-umap-N2-slm-louvain",
   Sys.Date(),
   ".RData"
 ))
-# save(combined_seurat, file = paste0(
-#   save.dir,
-#   "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-withoutsct-addmeta-SCVI-intergraed-umap-N2-slm-louvain",
-#   Sys.Date(),
-#   ".RData"
-# ))
 
 
 
@@ -354,26 +340,12 @@ colnames(combined_seurat@meta.data) <-
     colnames(combined_seurat@meta.data)
   )
 colnames(combined_seurat@meta.data)
-# save(combined_seurat, file = paste0(
-#   save.dir,
-#   "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-withoutsct-addmeta-SCVI-intergraed-umap-N2-slm-louvain",
-#   Sys.Date(),
-#   ".RData"
-# ))
 save(combined_seurat, file = paste0(
   save.dir,
-  "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-keepsct-SCVI-intergraed-umap-add-learn-N3-slm-louvain-muti",
+  "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-withoutsct-addmeta-SCVI-intergraed-umap-N2-slm-louvain",
   Sys.Date(),
   ".RData"
 ))
-
-load(file = paste0(
-  save.dir,
-  "/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-keepsct-SCVI-intergraed-umap-add-learn-N3-slm-louvain-muti",
-  Sys.Date(),
-  ".RData"
-))
-
 
 tree_cluster <-
   function(combined_seurat,
@@ -383,7 +355,7 @@ tree_cluster <-
     library(clustree)
     p_cluster <-
       clustree(combined_seurat, prefix = prefix)
-    ggsave(
+    ggplot2:ggsave(
       width = width,
       height = height,
       paste0(
@@ -394,7 +366,7 @@ tree_cluster <-
         "height",
         height,
         "_",
-        get_time(),
+        Sys.Date(),
         ".pdf"
       )
     )
@@ -425,24 +397,16 @@ dir.create("plotobject")
 save(
   list = ls(pattern = "p_cluster"),
   file = paste0(
-    "plotobject/cluster_scvi_muti_louvain_res_v2",
-    get_time(),
+    "plotobject/cluster_scvi_muti_louvain_res",
+    Sys.Date(),
     ".RData"
-  )
+  ),
+  compress = TRUE
 )
 
-combined_seurat
 Layers(combined_seurat)
 
 combined_seurat[["RNA"]] <- JoinLayers(combined_seurat[["RNA"]])
-
-save(
-  combined_seurat,
-  file = paste0(
-    "SeuratObjects/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-keepsct-SCVI-intergraed-umap-add-learn-N3-slm-louvain-muti_joined",
-    get_time(),
-    ".RData"
-  ))
 
 library("loupeR")
 loupeR::setup()
@@ -450,7 +414,7 @@ loupeR::setup()
 create_loupe_from_seurat(
   combined_seurat,
   output_name = paste0(
-    "SeuratObjects/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-keepsct-SCVI-intergraed-umap-add-learn-N3-slm-louvain-muti_",
+    "SeuratObjects/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-withoutsct-addmeta-SCVI-intergraed-umap-N2-slm-louvain_",
     get_time()
   )
 )
