@@ -418,3 +418,16 @@ create_loupe_from_seurat(
     get_time()
   )
 )
+
+DefaultAssay(combined_seurat) <- "SCT"
+get_time()
+# "2024-03-06-20-27"
+create_loupe_from_seurat(
+  combined_seurat,
+  output_name = paste0(
+    "SeuratObjects/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-withoutsct-addmeta-SCVI-intergraed-umap-N2-slm-louvain_SCTassey",
+    get_time()
+  )
+)
+
+

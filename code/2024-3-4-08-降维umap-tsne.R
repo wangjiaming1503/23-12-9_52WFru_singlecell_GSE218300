@@ -1,3 +1,6 @@
+
+combined_seurat <- load(".Rdata")
+library(ggplot2)
 # # 我想跑tSNE
 combined_seurat <- RunTSNE(combined_seurat)
 # # 画tSNE图
@@ -89,7 +92,6 @@ combined_seurat <-
 # Run UMAP again on the integrated data
 combined_seurat <-
   RunUMAP(combined_seurat, dims = 1:30, reduction = "integrated.dr")
-?  ? RunUMAP
 # Visualize UMAP results post integration
 p4 <-
   DimPlot(combined_seurat,
@@ -98,8 +100,9 @@ p4 <-
   )
 p4
 # Compare UMAP plots and save them with the current date in the filename
-umap_compare_plot <- p3 / p4
+umap_compare_plot <-  p4
 umap_compare_plot
+
 ggsave(
   paste0("umap_merged_intergrated_", Sys.Date(), ".png"),
   umap_compare_plot,

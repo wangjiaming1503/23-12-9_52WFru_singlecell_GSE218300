@@ -140,19 +140,8 @@ tree_cluster <-
            width = 25,
            height = 16) {
     library(clustree)
-    # install.packages("clustree")
     p_cluster <-
       clustree(combined_seurat, prefix = prefix)
-
-    # # install.packages("ploty")
-    # install.packages("plotly")
-    #
-    # library(plotly)
-    #
-    # ggplotly(p_cluster)
-
-    # width = 25
-    # height = 16
     ggsave(
       width = width,
       height = height,
