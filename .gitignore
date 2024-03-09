@@ -1695,3 +1695,9 @@ plotobject/cluster_scvi_leiden2024-03-07-09-45.RData
 Fru52W.Rds
 RNA_snn_scvi_leiden_res.width_25_height20_2024-03-07-09-42.pdf
 .gitignore
+python/data/pbmc3k_filtered_gene_bc_matrices.tar.gz
+python/data/filtered_gene_bc_matrices/hg19/barcodes.tsv
+python/data/filtered_gene_bc_matrices/hg19/genes.tsv
+python/data/filtered_gene_bc_matrices/hg19/matrix.mtx
+python/cache/data-filtered_gene_bc_matrices-hg19-matrix.h5ad
+__pycache__/scvelo.cpython-39.pyc
