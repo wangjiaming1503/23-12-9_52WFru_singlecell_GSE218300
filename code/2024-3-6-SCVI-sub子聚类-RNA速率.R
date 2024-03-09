@@ -205,4 +205,115 @@ show.velocity.on.embedding.cor(emb = Embeddings(object = bm, reduction = "umap")
     cex = 0.8, arrow.scale = 3, show.grid.flow = TRUE, min.grid.cell.mass = 0.5, grid.n = 40, arrow.lwd = 1, 
     do.par = FALSE, cell.border.alpha = 0.1)
 
-    
+#细胞比例分析==================================
+
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+
+# Extract cell type annotations from the metadata
+
+
+cell_types <- combined_seurat@meta.data$cell_type
+
+colnames(combined_seurat@meta.data)
+combined_seurat@meta.data[[RNA_snn_scvi_leiden_res.2]]
+library(mclust)  # for adjustedRandIndex
+library(aricode) # for NMI
+#install.packages("aricode")
+# 提取聚类结果和已知细胞类型注释
+metadata <- combined_seurat@meta.data
+colnames(metadata)
+
+adjustedRandIndex(metadata$SCT_snn_harmony_leiden_res.0.8,
+metadata$MouseRNA_SingleR.labels)
+
+
+cluster_cols <- grep("_clusters$|_res\\.", colnames(metadata), value = TRUE)
+
+ari_scores <- sapply(cluster_cols, function(col) {
+  adjustedRandIndex(metadata[[col]], metadata$MouseRNA_SingleR.labels)
+})
+
+ari_df <- data.frame(Cluster = cluster_cols, ARI = ari_scores)
+
+ari_df <- ari_df[order(-ari_df$ARI), ]
+
+library(ggplot2)
+ggplot(ari_df, aes(x = reorder(Cluster, ARI), y = ARI)) +
+  geom_bar(stat = "identity", fill = "skyblue", width = 0.7) +
+  coord_flip() +
+  xlab("Clustering") +
+  ylab("Adjusted Rand Index") +
+  ggtitle("Comparison of Clustering Results with MouseRNA_SingleR.labels") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 10))
+
+
+
+
+
+# 计算 ARI
+ari <- adjustedRandIndex(clustering, reference)
+
+# 计算 NMI
+nmi <- NMI(clustering, reference)
+
+clusterings <- colnames(combined_seurat@meta.data[, -c(1:5, 12, 13, 18:22)])
+
+references <- c("MouseRNA_SingleR.labels", "ImmGen_SingleR.labels","Blueprint_SingleR.labels",
+"ImmGen_fine_SingleR.labels","HPA_SingleR.labels")
+
+
+# Define the clusterings and references to evaluate
+clusterings <- colnames(combined_seurat@meta.data[, -c(1:5, 12, 13, 18:22)])
+references <- c("MouseRNA_SingleR.labels", "ImmGen_SingleR.labels",
+                "Blueprint_SingleR.labels", "ImmGen_fine_SingleR.labels",
+                "HPA_SingleR.labels")
+
+
+compare_clusterings <- function(metadata, ref_col) {
+  # 提取所有聚类结果的列名
+  cluster_cols <- grep("_clusters$|_res\\.", colnames(metadata), value = TRUE)
+  
+  # 计算每个聚类结果与参考分组的ARI
+  ari_scores <- sapply(cluster_cols, function(col) {
+    adjustedRandIndex(metadata[[col]], metadata[[ref_col]])
+  })
+  
+  # 将ARI得分与对应的聚类结果名称组合为数据框
+  ari_df <- data.frame(Cluster = cluster_cols, ARI = ari_scores)
+  
+  # 按ARI得分降序排列数据框
+  ari_df <- ari_df[order(-ari_df$ARI), ]
+  
+  # 导出CSV文件
+  write.csv(ari_df, file = paste0(get_time(), ref_col, "_clustering_comparison.csv"), row.names = FALSE)
+  
+  # 绘制条形图
+  library(ggplot2)
+  p <- ggplot(ari_df, aes(x = reorder(Cluster, ARI), y = ARI)) +
+    geom_bar(stat = "identity", fill = "skyblue", width = 0.7) +
+    coord_flip() +
+    xlab("Clustering") +
+    ylab("Adjusted Rand Index") +
+    ggtitle(paste("Comparison of Clustering Results with", ref_col)) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 12),
+          axis.text = element_text(size = 8),
+          axis.title = element_text(size = 10))
+  
+  # 保存图像文件
+  ggsave(paste0(get_time(),ref_col, "_clustering_comparison.pdf"), plot = p, ,units = "in",width = 10, height = 20, dpi = 1200)
+}
+
+# 应用函数到参考基因列表
+ref_cols <- c("MouseRNA_SingleR.labels", "ImmGen_SingleR.labels",
+              "Blueprint_SingleR.labels", "ImmGen_fine_SingleR.labels",
+              "HPA_SingleR.labels")
+
+for (ref_col in ref_cols) {
+  compare_clusterings(metadata, ref_col)
+}

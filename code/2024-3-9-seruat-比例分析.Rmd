@@ -1,0 +1,104 @@
+Certainly! To visualize the changes in cell proportions across different groups based on your clustering results, you can use R and Seurat to create stacked bar plots or grouped bar plots. Here's a step-by-step approach:
+
+1. Load the necessary libraries and your Seurat object:
+```{r}
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+
+# Load your Seurat object
+seurat_object <- readRDS("your_seurat_object.rds")
+```
+
+2. Extract the cell type annotations and group information:
+```{r}
+# Extract cell type annotations from the metadata
+cell_types <- seurat_object@meta.data$cell_type
+
+# Extract group information from the metadata (e.g., condition, sample, etc.)
+groups <- seurat_object@meta.data$group
+```
+Replace `"cell_type"` and `"group"` with the appropriate column names from your metadata that contain the cell type annotations and group information, respectively.
+
+3. Calculate the proportions of each cell type within each group:
+```{r}
+# Create a data frame with cell types and groups
+df <- data.frame(CellType = cell_types, Group = groups)
+
+# Calculate the proportions of each cell type within each group
+proportions <- df %>%
+  group_by(Group, CellType) %>%
+  summarise(Proportion = n()) %>%
+  mutate(Proportion = Proportion / sum(Proportion))
+```
+
+4. Create a stacked bar plot to visualize the proportions:
+```{r}
+# Create a stacked bar plot
+ggplot(proportions, aes(x = Group, y = Proportion, fill = CellType)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Group", y = "Proportion", fill = "Cell Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+5. Alternatively, you can create a grouped bar plot to compare the proportions side by side:
+```{r}
+# Create a grouped bar plot
+ggplot(proportions, aes(x = Group, y = Proportion, fill = CellType)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Group", y = "Proportion", fill = "Cell Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+These code snippets will generate visualizations of the cell type proportions across different groups. The stacked bar plot will show the relative proportions of each cell type within each group, while the grouped bar plot will display the proportions side by side for easier comparison.
+
+You can customize the plot further by adjusting the colors, labels, and other aesthetic elements using the various options provided by `ggplot2`.
+
+Make sure to replace `"your_seurat_object.rds"` with the actual file path to your Seurat object, and ensure that the metadata columns `"cell_type"` and `"group"` match the column names in your data.
+
+Note: The code assumes that you have already performed clustering and assigned cell type annotations to each cell in your Seurat object's metadata.
+
+好的,我来详细解释一下如何用已知的细胞类型注释来评估聚类性能。
+
+假设你有一列已知的细胞类型注释,存在combined_seurat@meta.data中,列名为"celltype"。你想评估"SCT_snn_harmony_Louvain_res.0.5"这个聚类结果的性能。
+
+可以用下面的代码计算一些评估指标:
+
+```R
+library(mclust)  # for adjustedRandIndex
+library(aricode) # for NMI
+
+# 提取聚类结果和已知细胞类型注释
+clustering <- combined_seurat$SCT_snn_harmony_Louvain_res.0.5
+reference <- combined_seurat$celltype
+
+# 计算 ARI
+ari <- adjustedRandIndex(clustering, reference)
+
+# 计算 NMI
+nmi <- NMI(clustering, reference)
+
+cat("Clustering: SCT_snn_harmony_Louvain_res.0.5\n") 
+cat("ARI:", ari, "\n")
+cat("NMI:", nmi, "\n")
+```
+
+代码解释:
+
+1. 首先载入需要的R包,mclust用于计算ARI,aricode用于计算NMI。
+
+2. 提取要评估的聚类结果和参考的细胞类型注释。
+
+3. 用adjustedRandIndex函数计算聚类结果和参考注释的ARI。ARI取值在0到1之间,1表示完全一致,-1表示完全不一致,0附近表示接近随机水平。
+
+4. 用NMI函数计算标准化互信息(normalized mutual information)。NMI也是取值在0到1之间,1表示完全一致,0表示独立无关。
+
+5. 打印出聚类算法名称和对应的ARI,NMI分值,供参考。
+
+你可以对其他聚类结果(如"RNA_snn_scvi_leiden_res.1.5")重复以上代码,计算对应的ARI和NMI,然后比较不同聚类的性能。
+
+ARI和NMI是评价聚类结果的常用指标,结合参考注释能反映聚类的准确性。此外,V-measure, Fowlkes–Mallows index等指标也可以用类似的方式计算。
+
+希望这个例子解释清楚了如何用已知注释评估聚类性能,可以参考执行。让我知道还有什么问题。
