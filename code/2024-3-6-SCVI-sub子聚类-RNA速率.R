@@ -3,7 +3,11 @@ library(SeuratWrappers)
 library(tidyverse)
 setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
 View(maartenutils::gen_file_overview("SeuratObjects"))
-load("SeuratObjects/2024-03-08combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne2024-03-08-13-38.RData")
+#保存与读取，每次更新
+load("SeuratObjects/2024-03-10-19-38combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne-anotated.Rdata")
+
+save(combined_seurat,file = paste0(
+"./SeuratObjects/",get_time(),"combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne-anotated.Rdata"))
 
 get_time()
 
