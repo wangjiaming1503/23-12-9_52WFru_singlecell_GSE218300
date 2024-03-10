@@ -29,8 +29,11 @@ combined_seurat <- RunTSNE(
 )
 DefaultAssay(combined_seurat)
 
+View(maartenutils::gen_file_overview("SeuratObjects"))
+save(combined_seurat,file = paste0(
+"./SeuratObjects/",get_time(),"combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne-anotated-alltsne.Rdata")
+)
 
-save(combined_seurat,"./SeuratObjects/",get_time()"combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne-anotated-alltsne")
 library("loupeR")
 create_loupe_from_seurat(
   combined_seurat,
@@ -48,8 +51,12 @@ create_loupe_from_seurat(
   )
 )
 
+save(combined_seurat,paste0("./SeuratObjects/",get_time(),"combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne-anotated-alltsne-SCT.Rdata"
+                        )
+    )
 
 #3dtsne===========================================================================================
+#感觉没有很必要了，已经分的很好了。
 # Install plot_ly
 install.packages('plotly')
 
@@ -137,4 +144,5 @@ plot_ly(data = plotting.data,
         text=~label,
         hoverinfo="text"
 )
+
 
