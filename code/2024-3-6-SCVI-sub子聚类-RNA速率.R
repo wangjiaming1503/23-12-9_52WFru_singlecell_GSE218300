@@ -3,7 +3,7 @@ library(SeuratWrappers)
 library(tidyverse)
 setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
 View(maartenutils::gen_file_overview("SeuratObjects"))
-load("SeuratObjects/combined_seurat_combined_umap_N4_harmony_cca_rcpa-mnn-keepsct-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined2024-03-07-08-46.RData")
+load("SeuratObjects/2024-03-08combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne2024-03-08-13-38.RData")
 
 get_time()
 
@@ -317,3 +317,72 @@ ref_cols <- c("MouseRNA_SingleR.labels", "ImmGen_SingleR.labels",
 for (ref_col in ref_cols) {
   compare_clusterings(metadata, ref_col)
 }
+
+#分配聚类结果名称，采用slmrse0.2-scvi==========================================
+colnames(combined_seurat@meta.data)
+# "RNA_snn_scvi_slm_res.0.2"
+Idents(combined_seurat)  <-  "RNA_snn_scvi_slm_res.0.2"
+table(Idents(combined_seurat))
+table(combined_seurat@meta.data$ImmGen_SingleR.labels)
+table(combined_seurat@meta.data$MouseRNA_SingleR.labels)
+
+combined_seurat  <- RenameIdents(combined_seurat,
+              "0" = "Endothelial cells")
+table(Idents(combined_seurat))
+combined_seurat  <- RenameIdents(combined_seurat,
+              "1" = "Macrophages")
+
+combined_seurat  <- RenameIdents(combined_seurat,
+              "2" = "Hepatocytes-1",
+              "3" = "Fibroblasts-1",
+              "4" = "Hepatocytes-2",
+              "5" = "Monocytes-1",
+              "6" = "Hepatocytes-3",
+              "7" = "Monocytes-2",
+              "8" = "Neutrophils",
+              "9" = "T cells",
+              "10" = "B cells-1",
+              "11" = "B cells-2",
+              "12" = "Erythrocytes-1",
+              "13" = "Fibroblasts-2",
+              "14" = "Erythrocytes-2",
+              "15" = "Monocytes/B cells",
+              "17" = "Macrophages-2",
+
+              "18" = "Macrophages-3")
+table(Idents(combined_seurat))
+head(Idents(combined_seurat))
+
+RidgePlot(combined_seurat,features = "Lcn2",split.by  = "group")
+VlnPlot(combined_seurat,features = "Spp1",split.by  = "group")
+DotPlot(combined_seurat,features = "Lcn2")
+FeaturePlot(combined_seurat,reduction = "tsne.scvi",features = "Lcn2",split.by  = "group")
+
+
+DimPlot(
+  combined_seurat,
+  dims = c(1, 2),
+  cells = NULL,
+  cols = NULL,
+  pt.size = NULL,
+  reduction = "tsne.scvi",
+  split.by = "group",
+  shape.by = NULL,
+  order = NULL,
+  shuffle = FALSE,
+  seed = 1,
+  label = FALSE,
+  label.size = 4,
+  label.color = "black",
+  label.box = FALSE,
+  repel = TRUE,
+  alpha = 0.6,
+  cells.highlight = NULL,
+  cols.highlight = "#DE2D26",
+  sizes.highlight = 1,
+  na.value = "grey50",
+  ncol = 2,
+  combine = TRUE,
+  raster = NULL,
+  raster.dpi = c(512, 512)
+)
