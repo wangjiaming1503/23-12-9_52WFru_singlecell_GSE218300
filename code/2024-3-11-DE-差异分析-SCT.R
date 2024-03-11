@@ -6,7 +6,7 @@ library(ggplot2)
 library(ggpubr)
 library(RColorBrewer)
 library(EnhancedVolcano)
-
+setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
 
 
 detable_MouseRNA_SCT <-
@@ -62,7 +62,7 @@ volcano_plot_func <- function(detable_data,
     labFace = 'bold',
     title = cell_type,
     subtitle = NULL,
-    ylim = c(0,-log10(min(detable_data[[paste0(cell_type, " P-Value")]][detable_data[[paste0(cell_type, " P-Value")]] > 0]))),
+    ylim = c(0, -log10(min(detable_data[[paste0(cell_type, " P-Value")]][detable_data[[paste0(cell_type, " P-Value")]] > 0]))),
     xlim = c(min(detable_data[[paste0(cell_type, " Log2 Fold Change")]]), max(detable_data[[paste0(cell_type, " Log2 Fold Change")]])),
     caption = NULL,
     FCcutoff = 0.5,
@@ -106,110 +106,19 @@ volcano_plot_func <- function(detable_data,
 
 colnames(detable_MouseRNA_SCT)
 
-volcano_plot_func(detable_data = detable_MouseRNA_SCT,
-                  highlight_gene = c("Lcn2","Spp1"),cell_type = "Hepatocytes")
-
-volcano_plot_func(detable_data = detable_MouseRNA_SCT,
-                  highlight_gene = c("Lcn2","Lyz2"),cell_type = "Granulocytes")
-
-save.image("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300/Rdat
-    a_time/2024年3月11日14-loupe-下游差异火山图分析.RData")
-
-
-#oldcode--------------------------------------------
-View(detable_MouseRNA_SCT)
-colnames(detable_MouseRNA_SCT)
-
-lab_italics <-
-  paste0("italic('", detable_MouseRNA_SCT$FeatureName, "')")
-selectLab_italics = paste0("italic('", "Lcn2", "')")
-
-point_sizes <-
-  ifelse(detable_MouseRNA_SCT$FeatureName == 'Lcn2', 2.5, 1)
-alpha_values <-
-  ifelse(detable_MouseRNA_SCT$FeatureName == 'Lcn2', 1, 0.2)
-
-custom_colors <-
-  ifelse(
-    detable_MouseRNA_SCT$`Hepatocytes P-Value` < 0.05 &
-      detable_MouseRNA_SCT$`Hepatocytes Log2 Fold Change` > 0.5,
-    'red3',
-    ifelse(
-      detable_MouseRNA_SCT$`Hepatocytes P-Value` < 0.05 &
-        detable_MouseRNA_SCT$`Hepatocytes Log2 Fold Change` < -0.5,
-      'navyblue',
-      'grey50'
-    )
-  )
-custom_colors[is.na(custom_colors)] <- 'grey50'
-
-names(custom_colors)[custom_colors == "red3"] <- 'high'
-names(custom_colors)[custom_colors == "navyblue"] <- 'low'
-names(custom_colors)[custom_colors == "grey50"] <- 'nosig'
-
-volcano_plot <- EnhancedVolcano(
-  toptable = detable_MouseRNA_SCT,
-  lab = lab_italics,
-  x = "Hepatocytes Log2 Fold Change",
-  y = "Hepatocytes P-Value",
-  pCutoff = 0.05,
-  selectLab = NA, #配合下方ggrpel，如果NULL则全部画出来，不用ggrpel则为selectLab_italics
-  drawConnectors = FALSE,
-  boxedLabels = FALSE,
-  parseLabels = TRUE,
-  labCol = 'black',
-  labFace = 'bold',
-  title = "Hepatocytes",
-  subtitle = NULL,
-  ylim = c(0, -log10(min(detable_MouseRNA_SCT$`Hepatocytes P-Value`[detable_MouseRNA_SCT$`Hepatocytes P-Value` > 0]))),
-  xlim = c(min(detable_MouseRNA_SCT$`Hepatocytes Log2 Fold Change`), max(detable_MouseRNA_SCT$`Hepatocytes Log2 Fold Change`)),
-  caption = NULL,
-  FCcutoff = 0.5,
-  gridlines.major = FALSE,
-  gridlines.minor = FALSE,
-  legendPosition = 'none',
-  #pointSize = point_sizes,
-  #colAlpha = alpha_values,
-  pointSize = 1,  # 设置默认点大小
-  colAlpha = 0.2,  # 设置默认透明度
-  colCustom = custom_colors
+volcano_plot_func(
+  detable_data = detable_MouseRNA_SCT,
+  highlight_gene = c("Lcn2", "Spp1"),
+  cell_type = "Hepatocytes"
 )
-#str(volcano_plot)
-volcano_plot <- volcano_plot +
-  xlab(expression(log[2]*"(fold change)")) +
-  ylab(expression(-lg*italic(" P")))
 
+volcano_plot_func(
+  detable_data = detable_MouseRNA_SCT,
+  highlight_gene = c("Lcn2", "Lyz2"),
+  cell_type = "Granulocytes"
+)
 
-print(volcano_plot)
-highlight_gene <- "Lcn2"
-
-volcano_plot <- volcano_plot +
-  xlab(expression(log[2]*"(fold change)")) +
-  ylab(expression(-lg*italic(" P"))) +
-  geom_text_repel(
-    data = subset(detable_MouseRNA_SCT, FeatureName %in% c("Lcn2")),
-    aes(x = `Hepatocytes Log2 Fold Change`, y = -log10(`Hepatocytes P-Value`), label = FeatureName),
-    fontface = "italic",
-    nudge_y = 0.5
-  )
-print(volcano_plot)
-
-volcano_plot <- volcano_plot +
-  geom_point(
-    data = subset(detable_MouseRNA_SCT, FeatureName %in% highlight_gene),
-    aes(x = `Hepatocytes Log2 Fold Change`, y = -log10(`Hepatocytes P-Value`)),
-    size = 2.5,  # 设置突出显示的点的大小
-    alpha = 1 , # 设置突出显示的点的透明度
-    colour = custom_colors
-  ) +
-  xlab(expression(log[2]*"(fold change)")) +
-  ylab(expression(-lg*italic(" P"))) +
-  geom_text_repel(
-    data = subset(detable_MouseRNA_SCT, FeatureName %in% highlight_gene),
-    aes(x = `Hepatocytes Log2 Fold Change`, y = -log10(`Hepatocytes P-Value`), label = FeatureName),
-    fontface = "italic",
-    nudge_y = 0.5
-  )
-print(volcano_plot)
-
-
+#save.image(
+#   "/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300/Rdat
+#     a_time/2024年3月11日14-loupe-下游差异火山图分析.RData"
+# )
