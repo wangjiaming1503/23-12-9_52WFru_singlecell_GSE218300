@@ -203,7 +203,10 @@ cell_type,
 colnames(detable_MouseRNA_SCT)
 
 volcano_plot_func(detable_data = detable_MouseRNA_SCT,
-                  highlight_gene = "Lcn2",cell_type = "Hepatocytes")
+                  highlight_gene = c("Lcn2","Spp1"),cell_type = "Hepatocytes")
 
 volcano_plot_func(detable_data = detable_MouseRNA_SCT,
-                  highlight_gene = NULL,cell_type = "Granulocytes")
+                  highlight_gene = c("Lcn2","Lyz2"),cell_type = "Granulocytes")
+
+save.image("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300/Rdat
+    a_time/2024年3月11日14-loupe-下游差异火山图分析.RData")
