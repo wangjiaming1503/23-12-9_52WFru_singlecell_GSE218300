@@ -70,7 +70,7 @@ volcano_plot_func <- function(detable_data,
     gridlines.minor = FALSE,
     legendPosition = 'none',
     pointSize = 1,
-    colAlpha = 0.2,
+    colAlpha = 0.1,
     colCustom = custom_colors
   )
   
@@ -122,3 +122,29 @@ volcano_plot_func(
 #   "/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300/Rdat
 #     a_time/2024年3月11日14-loupe-下游差异火山图分析.RData"
 # )
+load("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300/Rdata_time/2024年3月11日14-loupe-下游差异火山图分析.RData")
+
+
+volcano_plot_func(
+  detable_data = detable_MouseRNA_SCT,
+  highlight_gene = c("Lcn2", "Lyz2","Ly6g"),
+  cell_type = "Granulocytes"
+)
+
+volcano_plot_func(
+  detable_data = detable_MouseRNA_SCT,
+  highlight_gene = c("Mmp2"),
+  cell_type = "Fibroblasts"
+)
+
+volcano_plot_func(
+  detable_data = detable_MouseRNA_SCT,
+  highlight_gene = c("Saa1","Saa2"),
+  cell_type = "Fibroblasts"
+)
+
+volcano_plot_func(
+  detable_data = detable_MouseRNA_SCT,
+  highlight_gene = c("Lcn2", "Spp1","Saa1","Saa2"),
+  cell_type = "Hepatocytes"
+)
