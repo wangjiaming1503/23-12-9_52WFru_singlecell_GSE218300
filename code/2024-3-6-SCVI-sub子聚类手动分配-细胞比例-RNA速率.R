@@ -474,3 +474,125 @@ p1 + p2 + plot_layout(widths = c(2,1))
 
 chisq.test(table(combined_seurat@active.ident, combined_seurat$group))
 
+saveRDS(combined_seurat, file = paste0("SeuratObjects/",get_time(),"_combined_seurat_anotated.rds"))
+
+combined_seurat  <- readRDS("./SeuratObjects/2024-03-15-19-26_combined_seurat_anotated.rds")
+
+library("loupeR")
+
+create_loupe_from_seurat(
+  combined_seurat,
+  output_name = paste0(
+    "SeuratObjects/",get_time(),"combined_seurat_anotated")
+  )
+
+DefaultAssay(combined_seurat)
+DefaultAssay(combined_seurat)  <- "RNA"
+
+create_loupe_from_seurat(
+  combined_seurat,
+  output_name = paste0(
+    "SeuratObjects/",get_time(),"combined_seurat_anotated-RNA")
+  )
+
+table(Idents(combined_seurat))
+
+
+#Hepatocytes单独分析-------------------------------------------
+sub_seurat_hepa <- subset(combined_seurat, idents = c("Hepatocytes"))
+sub_seurat_hepa <- FindVariableFeatures(sub_seurat_hepa, selection.method = "vst", nfeatures = 2000)
+all.genes <- rownames(sub_seurat_hepa)
+sub_seurat_hepa <- ScaleData(sub_seurat_hepa, features = all.genes)
+sub_seurat_hepa <- RunPCA(sub_seurat_hepa, features = VariableFeatures(object = sub_seurat_hepa))
+ElbowPlot(sub_seurat_hepa)
+sub_seurat_hepa <- FindNeighbors(sub_seurat_hepa, dims = 1:10)
+
+sub_seurat_hepa <- FindClusters(sub_seurat_hepa, resolution = seq(0.1, 2, by = 0.1),algorithm = 3)
+
+sub_seurat_hepa <- RunTSNE(sub_seurat_hepa, dims = 1:10) 
+DimPlot(sub_seurat_hepa, reduction = "tsne")
+
+colnames(sub_seurat_hepa@meta.data)
+colnames(sub_seurat_hepa@meta.data) <-
+  gsub(
+    "RNA_snn_res.",
+    "RNA_snn_hepa_slm_res",
+    colnames(sub_seurat_hepa@meta.data)
+  )
+
+# 确认替换成功
+colnames(combined_seurat@meta.data)
+save(sub_seurat_hepa,file = paste0("./SeuratObjects/",get_time(),"sub_seurat_hepa.Rdata"))
+library("loupeR")
+
+create_loupe_from_seurat(
+  sub_seurat_hepa,
+  output_name = paste0(
+    "SeuratObjects/",get_time(),"sub_seurat_hepa")
+  )
+
+#Macrophages，Monocytes-----------------------------------
+
+sub_seurat_monomacro <- subset(combined_seurat, idents = c("Macrophages","Monocytes"))
+sub_seurat_monomacro <- FindVariableFeatures(sub_seurat_monomacro, selection.method = "vst", nfeatures = 2000)
+all.genes <- rownames(sub_seurat_monomacro)
+sub_seurat_monomacro <- ScaleData(sub_seurat_monomacro, features = all.genes)
+sub_seurat_monomacro <- RunPCA(sub_seurat_monomacro, features = VariableFeatures(object = sub_seurat_monomacro))
+ElbowPlot(sub_seurat_monomacro)
+sub_seurat_monomacro <- FindNeighbors(sub_seurat_monomacro, dims = 1:20)
+
+sub_seurat_monomacro <- FindClusters(sub_seurat_monomacro, resolution = seq(0.1, 2, by = 0.1),algorithm = 3)
+
+sub_seurat_monomacro <- RunTSNE(sub_seurat_monomacro, dims = 1:20) 
+DimPlot(sub_seurat_monomacro, reduction = "tsne")
+
+colnames(sub_seurat_monomacro@meta.data)
+colnames(sub_seurat_monomacro@meta.data) <-
+  gsub(
+    "RNA_snn_res.",
+    "RNA_snn_monomacro_slm_res",
+    colnames(sub_seurat_monomacro@meta.data)
+  )
+
+# 确认替换成功
+colnames(sub_seurat_monomacro@meta.data)
+save(sub_seurat_hepa,file = paste0("./SeuratObjects/",get_time(),"sub_seurat_monomacro.Rdata"))
+
+
+
+library("loupeR")
+
+create_loupe_from_seurat(
+  sub_seurat_monomacro,
+  output_name = paste0(
+    "SeuratObjects/",get_time(),"sub_seurat_monomacro")
+  )
+
+tree_cluster <-
+  function(combined_seurat,
+           prefix,
+           width = 25,
+           height = 16) {
+    library(clustree)
+    p_cluster <-
+      clustree(combined_seurat, prefix = prefix)
+    ggsave(
+      width = width,
+      height = height,
+      paste0(
+        prefix,
+        "width_",
+        width,
+        "_",
+        "height",
+        height,
+        "_",
+        Sys.Date(),
+        ".pdf"
+      )
+    )
+    return(p_cluster)
+  }
+
+p_cluster_monomacro  <- tree_cluster(sub_seurat_monomacro,prefix = "RNA_snn_monomacro_slm_res")
+p_cluster_hepa  <- tree_cluster(sub_seurat_hepa,prefix = "RNA_snn_hepa_slm_res")
