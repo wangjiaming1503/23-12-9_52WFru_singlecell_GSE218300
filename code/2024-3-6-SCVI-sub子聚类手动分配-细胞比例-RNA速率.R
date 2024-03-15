@@ -336,24 +336,49 @@ table(Idents(combined_seurat))
 combined_seurat  <- RenameIdents(combined_seurat,
               "1" = "Macrophages")
 
-combined_seurat  <- RenameIdents(combined_seurat,
-              "2" = "Hepatocytes-1",
-              "3" = "Fibroblasts-1",
-              "4" = "Hepatocytes-2",
-              "5" = "Monocytes-1",
-              "6" = "Hepatocytes-3",
-              "7" = "Monocytes-2",
-              "8" = "Neutrophils",
-              "9" = "T cells",
-              "10" = "B cells-1",
-              "11" = "B cells-2",
-              "12" = "Erythrocytes-1",
-              "13" = "Fibroblasts-2",
-              "14" = "Erythrocytes-2",
-              "15" = "Monocytes/B cells",
-              "17" = "Macrophages-2",
+# combined_seurat  <- RenameIdents(combined_seurat,
+#               "2" = "Hepatocytes-1",
+#               "3" = "Fibroblasts-1",
+#               "4" = "Hepatocytes-2",
+#               "5" = "Monocytes-1",
+#               "6" = "Hepatocytes-3",
+#               "7" = "Monocytes-2",
+#               "8" = "Neutrophils",
+#               "9" = "T cells",
+#               "10" = "B cells-1",
+#               "11" = "B cells-2",
+#               "12" = "Erythrocytes-1",
+#               "13" = "Fibroblasts-2",
+#               "14" = "Erythrocytes-2",
+#               "15" = "DC",
+#               "17" = "Macrophages-2",
+# 
+#               "18" = "Macrophages-3")
 
-              "18" = "Macrophages-3")
+combined_seurat  <- RenameIdents(combined_seurat,
+                                 "2" = "Hepatocytes",
+                                 "3" = "Fibroblasts",
+                                 "4" = "Hepatocytes",
+                                 "5" = "Monocytes",
+                                 "6" = "Hepatocytes",
+                                 "7" = "Monocytes",
+                                 "8" = "Neutrophils",
+                                 "9" = "T cells",
+                                 "10" = "B cells",
+                                 "11" = "B cells",
+                                 "12" = "Erythrocytes",
+                                 "13" = "Fibroblasts",
+                                 "14" = "Erythrocytes",
+                                 "15" = "DC",
+                                 "16" = "Stem cells",
+                                 "17" = "Macrophages",
+                                 
+                                 "18" = "Macrophages",
+                                 "19" = "Eosinophils",
+                                 "20" = "Fibroblasts",
+                                 "21" = "Basophils")
+
+
 table(Idents(combined_seurat))
 head(Idents(combined_seurat))
 
@@ -363,7 +388,7 @@ DotPlot(combined_seurat,features = "Lcn2")
 FeaturePlot(combined_seurat,reduction = "tsne.scvi",features = "Lcn2",split.by  = "group")
 
 
-DimPlot(
+p1<- DimPlot(
   combined_seurat,
   dims = c(1, 2),
   cells = NULL,
@@ -380,6 +405,48 @@ DimPlot(
   label.color = "black",
   label.box = FALSE,
   repel = TRUE,
+  alpha = 0.2,
+  cells.highlight = NULL,
+  cols.highlight = "#DE2D26",
+  sizes.highlight = 1,
+  na.value = "grey50",
+  ncol = 2,
+  combine = TRUE,
+  raster = NULL,
+  raster.dpi = c(512, 512)
+)
+
+library(httpgd)
+??httpgd
+hgd()
+
+# keep_cell_types <- c("Hepatocytes-1", "Fibroblasts-1", "Hepatocytes-2", "Monocytes-1", "Hepatocytes-3",
+#                      "Monocytes-2", "Neutrophils", "T cells", "B cells-1", "B cells-2",
+#                      "Erythrocytes-1", "Fibroblasts-2", "Erythrocytes-2", "Monocytes/B cells", "Macrophages-2",
+#                      "Macrophages-3", "Macrophages", "Endothelial cells")
+
+
+combined_seurat  <- subset(combined_seurat, idents = keep_cell_types)
+
+table(Idents(combined_seurat))
+
+DimPlot(
+  combined_seurat,
+  dims = c(1, 2),
+  cells = NULL,
+  cols = NULL,
+  pt.size = NULL,
+  reduction = "tsne.scvi",
+  split.by = NULL,
+  shape.by = NULL,
+  order = NULL,
+  shuffle = FALSE,
+  seed = 1,
+  label = TRUE,
+  label.size = 4,
+  label.color = "black",
+  label.box = FALSE,
+  repel = TRUE,
   alpha = 0.6,
   cells.highlight = NULL,
   cols.highlight = "#DE2D26",
@@ -390,3 +457,20 @@ DimPlot(
   raster = NULL,
   raster.dpi = c(512, 512)
 )
+dev.off()
+
+colnames(combined_seurat@meta.data)
+
+cell_props <- prop.table(table(combined_seurat@active.ident, combined_seurat$group), margin = 2)
+library(ggplot2)
+cell_props_df <- as.data.frame(cell_props)
+
+p2 <- ggplot(cell_props_df, aes(x = Var2, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  labs(x = "Group", y = "Proportion", fill = "Cell Type") +
+  theme_classic()
+library(patchwork)
+p1 + p2 + plot_layout(widths = c(2,1))
+
+chisq.test(table(combined_seurat@active.ident, combined_seurat$group))
+

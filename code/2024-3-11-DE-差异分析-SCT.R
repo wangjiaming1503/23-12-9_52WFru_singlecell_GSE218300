@@ -148,3 +148,38 @@ volcano_plot_func(
   highlight_gene = c("Lcn2", "Spp1","Saa1","Saa2"),
   cell_type = "Hepatocytes"
 )
+#打开绘图
+library(httpgd)
+hgd()
+hgd_view()
+
+#monocle3===========================================
+library(monocle3)
+library(Seurat)
+library(SeuratData)
+library(SeuratWrappers)
+library(ggplot2)
+library(patchwork)
+library(magrittr)
+
+
+summary(combined_seurat@reductions)
+colnames(combined_seurat@meta.data)
+
+
+cds <- as.cell_data_set(
+  combined_seurat,
+  default.reduction = "tsne.sct.harmony"
+)
+cds <- reduce_dimension(cds)
+
+cds <- cluster_cells(cds)
+
+p1 <- plot_cells(cds, show_trajectory_graph = FALSE)
+p2 <- plot_cells(cds, color_cells_by = "partition", show_trajectory_graph = FALSE)
+wrap_plots(p1, p2)
+
+DimPlot(combined_seurat, group.by = c("MouseRNA_SingleR.labels"),reduction = "tsne.sct.harmony")
+str(cds)
+
+save(cds,file = paste0("SeuratObjects/",get_time(),"cds.Rdata"))
