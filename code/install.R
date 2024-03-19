@@ -2,6 +2,8 @@
 
 Sys.setenv(http_proxy = "http://192.168.0.105:7890")
 Sys.setenv(https_proxy = "http://192.168.0.105:7890")
+install.packages("remotes")
+remotes::install_github('satijalab/seurat-wrappers')
 
 install.packages('Seurat')
 library(Seurat)

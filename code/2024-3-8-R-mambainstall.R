@@ -9,9 +9,12 @@ options(BIOCONDUCTOR_CONFIG_FILE = "https://packagemanager.posit.co/bioconductor
 
 # Configure a CRAN snapshot compatible with Bioconductor 3.18:
 options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/latest"))
-
+chooseBioCmirror()
 library(BiocManager)
-
+BiocManager::install(c("simpleSingleCell","RNAseq123","rnaseqGene"))
+BiocManager::install(c("gert","RNAseq123","usethis","BiocWorkflowTools"))
+BiocManager::install("RNAseq123")
+#mamba install r-gert
 pkgs <- c(
   "liftOver",
   "rnaseqGene",

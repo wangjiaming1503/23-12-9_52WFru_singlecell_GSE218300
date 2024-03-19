@@ -1,0 +1,9 @@
+setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
+.libPaths()
+.libPaths("/home/rstudio/work/scvi/R")
+
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+library(BiocManager)
+install.packages("remotes")
+remotes::install_github('satijalab/seurat-wrappers')

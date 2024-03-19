@@ -86,11 +86,14 @@ load(
   "SeuratObjects/combined_seurat_combined_umap_N4--SCT-N3-cca-N3-louvain_slm_muti2024-03-02.RData"
 )
 
-# library(reticulate)
+library(reticulate)
 
 # 这可以指定python
 # path_to_python <- "/home/rstudio/work/miniconda3/envs/scvi-env-2/bin/python"
-# use_python(path_to_python)
+#use_python("/env/bin/python")
+#Error in normalizePath(conda, winslash = "/", mustWork = TRUE) : 
+ # path[1]="/opt/conda/bin/mamba": No such file or directory
+
 library(Seurat)
 library(SeuratWrappers)
 # 整合前设定最大的对象可以避免报错

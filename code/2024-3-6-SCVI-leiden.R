@@ -1,9 +1,15 @@
 setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
 
+.libPaths("/home/rstudio/work/scvi/R")
 .libPaths()
 library(Seurat)
 library(SeuratWrappers)
 options(future.globals.maxSize = 1e9)
+BiocManager::install(c("sceasy","anndata"))
+BiocManager::install(c("LoomExperiment", "SingleCellExperiment"))
+devtools::install_github("cellgeni/sceasy")
+
+
 library(sceasy)
 library(reticulate)
 library(anndata)
