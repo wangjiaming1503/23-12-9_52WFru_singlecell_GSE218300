@@ -5,7 +5,9 @@ library(tidyverse)
 # library(SeuratDisk)
 setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
 View(maartenutils::gen_file_overview("SeuratObjects"))
-load("./SeuratObjects/2024-03-11-00-49combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne-anotated-alltsne.Rdata")
+load(
+  "./SeuratObjects/2024-03-11-00-49combined_seurat-SCVI-intergraed-umap-add-learn-N4-slm-louvain-muti-leiden_all_joined-tsne-anotated-alltsne.Rdata"
+)
 get_time()
 DefaultAssay(combined_seurat) <- "RNA"
 combined_seurat
@@ -14,10 +16,15 @@ Layers(combined_seurat)
 
 
 save.dir <- "SeuratObjects"
-SaveH5Seurat(combined_seurat, filename = paste0(
+SaveH5Seurat(
+  combined_seurat,
+  filename = paste0(
     save.dir,
-    "/", get_time(), "anotated-alltsne-combined_seurat.h5Seurat"
-)) # only able to save in h5Seurat format,not h5ad
+    "/",
+    get_time(),
+    "anotated-alltsne-combined_seurat.h5Seurat"
+  )
+) # only able to save in h5Seurat format,not h5ad
 
 
 # Convert("SeuratObjects/2024-03-19-09-07anotated-alltsne-combined_seurat.h5Seurat", dest = "h5ad") #faied
@@ -36,3 +43,19 @@ as.anndata(combined_seurat, file_path = "SeuratObjects", file_name = "2024-03-19
 DefaultAssay(combined_seurat) <- "SCT"
 get_time()
 as.anndata(combined_seurat, file_path = "SeuratObjects", file_name = "2024-03-19-09-39anotated-alltsne-combined_seurat-SCT.h5ad") # same result
+#上面的方法的anadata有可能有bug，名字没了只有编号了。
+rownames(combined_seurat)
+rownames(sce)
+
+
+DefaultAssay(combined_seurat) <- "RNA"
+sce3 <- as.SingleCellExperiment(combined_seurat)
+rownames(sce3)
+colnames(sce3)
+combined_seurat3 <- as.Seurat(sce3)
+
+
+combined_seurat <-
+  readRDS(
+    "~/work/23-12-9_52WFru_singlecell_GSE218300/SeuratObjects/2024-03-15-19-26_combined_seurat_anotated.rds"
+  )
