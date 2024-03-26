@@ -1,5 +1,6 @@
 library(Seurat)
 library(tidyverse)
+library(SingleCellExperiment)
 combined_seurat <-
   readRDS(
     "~/work/23-12-9_52WFru_singlecell_GSE218300/SeuratObjects/2024-03-15-19-26_combined_seurat_anotated.rds"
@@ -65,10 +66,12 @@ library(zellkonverter)
 sce <- zellkonverter::readH5AD("./SeuratObjects/2024-03-21-11-06anotated-alltsne-combined_seurat-quality_control_notsubseted.h5ad", verbose = TRUE)
 
 library(scDblFinder)
-sce = scDblFinder(sce)
+library(BiocParallel)
+
+sce = scDblFinder(sce,samples="orig.ident", BPPARAM=MulticoreParam(3))
 doublet_score = sce$scDblFinder.score
 doublet_class = sce$scDblFinder.class
-
+table(doublet_class)
 combined_seurat[['doublet_score']] = doublet_score
 combined_seurat[['doublet_class']] = doublet_class
 combined_seurat@meta.data
@@ -122,7 +125,7 @@ combined_seurat[['scDblFinder.weighted']] = colData(sce)$scDblFinder.weighted
 combined_seurat[['scDblFinder.cxds_score']] = colData(sce)$scDblFinder.cxds_score
 
 colnames(combined_seurat@meta.data)
-save(combined_seurat, file = "SeuratObjects/2024-03-21-11-23anotated-alltsne-combined_seurat-quality_control_doublet_normalized_addmeta.RData")
+save(combined_seurat, file = "SeuratObjects/2024-03-26-12-54anotated-alltsne-combined_seurat-quality_control_doublet_normalized_addmeta.RData")
 load("SeuratObjects/2024-03-21-11-23anotated-alltsne-combined_seurat-quality_control_doublet_normalized_addmeta.RData")
 library("loupeR")
 create_loupe_from_seurat(
@@ -143,7 +146,7 @@ combined_seurat@meta.data$mt_outlier <- factor(combined_seurat@meta.data$mt_outl
 create_loupe_from_seurat(
   combined_seurat,
   output_name = paste0(
-    "SeuratObjects/2024-03-21-11-41anotated-alltsne-combined_seurat-quality_control_doublet_normalized_addmeta"
+    "SeuratObjects/2024-03-26-13-00anotated-alltsne-combined_seurat-quality_control_doublet_normalized_addmeta"
   )
 )
 
@@ -154,7 +157,7 @@ combined_seurat_filter <-
     mt_outlier == "FALSE" & doublet_class == "singlet")
 combined_seurat_filter
 
-saveRDS(combined_seurat_filter, file = "SeuratObjects/2024-03-21-11-55anotated-alltsne-combined_seurat-quality_control_doublet_normalized_addmeta_filter.rds")
+saveRDS(combined_seurat_filter, file = "SeuratObjects/2024-03-26-13-03anotated-alltsne-combined_seurat-quality_control_doublet_normalized_addmeta_filter.rds")
 create_loupe_from_seurat(
   combined_seurat_filter,
   output_name = paste0(

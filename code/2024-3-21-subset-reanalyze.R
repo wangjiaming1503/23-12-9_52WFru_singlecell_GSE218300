@@ -5,6 +5,8 @@ options(future.globals.maxSize = 1e9)
 library(sceasy)
 library(reticulate)
 library(anndata)
+View(maartenutils::gen_file_overview("SeuratObjects"))
+save.dir <- "SeuratObjects"
 load("SeuratObjects/2024-03-21-11-23anotated-alltsne-combined_seurat-quality_control_doublet_normalized_addmeta.RData")
 # 将 outlier 转换为因子型
 combined_seurat@meta.data$outlier <- factor(combined_seurat@meta.data$outlier, levels = c("TRUE", "FALSE"))
@@ -134,7 +136,7 @@ save(
     ".RData"
   )
 )
-
+load("SeuratObjects/2024-03-26-13-51combined_seurat_filter_combinedN4_mnn.RData")
 use_condaenv("/home/rstudio/work/miniforge3/envs/scvi-env-4")
 Sys.which("python")
 combined_seurat_filter <- IntegrateLayers(
@@ -168,6 +170,14 @@ combined_seurat_filter <- RunUMAP(combined_seurat_filter, dims = 1:30, reduction
 #tsne
 combined_seurat_filter <- RunTSNE(combined_seurat_filter, dims = 1:30, reduction = "ft_integrated.scvi", reduction.name = "ft_tsne.scvi")
 
+save(
+  combined_seurat_filter,
+  file = paste0(
+    save.dir,"/",get_time(),
+    "combined_seurat_filter_combinedN5_scvi_tsne",
+    ".RData"
+  )
+)
 
 Reselute_clusters_slm <- function(combined_seurat, resolution) {
   combined_seurat <-
@@ -177,10 +187,75 @@ Reselute_clusters_slm <- function(combined_seurat, resolution) {
     )
   return(combined_seurat)
 }
+Reselute_clusters_louvain_muti <-
+  function(combined_seurat, resolution) {
+    combined_seurat <-
+      FindClusters(combined_seurat,
+        resolution = resolution,
+        # cluster.name = "sct_harmony_2_clusters",
+        algorithm = 2
+      )
+    return(combined_seurat)
+  }
+
+Reselute_clusters_leiden <- function(combined_seurat, resolution) {
+  combined_seurat <-
+    FindClusters(combined_seurat,
+      resolution = resolution,
+      # cluster.name = "sct_harmony_2_clusters",
+      algorithm = 4
+    )
+  return(combined_seurat)
+}
+
+Reselute_clusters_louvain <- function(combined_seurat, resolution) {
+  combined_seurat <-
+    FindClusters(combined_seurat,
+                 resolution = resolution,
+                 # cluster.name = "sct_harmony_2_clusters",
+                 algorithm = 1)
+  return(combined_seurat)
+}
 resolution  <- seq(0.1, 2, by = 0.1)
+resolution  <- seq(0.1, 2, by = 0.1)
+#combined_seurat_filter <- Reselute_clusters_leiden(combined_seurat_filter, 2)
+
+
+combined_seurat_filter <- Reselute_clusters_louvain(combined_seurat_filter, resolution)
+
+# 通过gusb函数替换含有"SCT_snn_res"的列名
+colnames(combined_seurat_filter@meta.data) <-
+  gsub(
+    "RNA_snn_res.",
+    "ft_RNA_snn_scvi_louv_res.",
+    colnames(combined_seurat_filter@meta.data)
+  )
+colnames(combined_seurat_filter@meta.data)
+str(combined_seurat_filter@meta.data[,210:234],max.level = 2)
+combined_seurat_filter[["RNA"]] <- split(combined_seurat_filter[["RNA"]], f = combined_seurat_filter$orig.ident)
+combined_seurat_filter<- split(combined_seurat_filter, f = combined_seurat_filter$orig.ident)
+DefaultAssay(combined_seurat_filter)  <- "RNA"
+combined_seurat_filter[["SCT"]]
+Layers(combined_seurat_filter)
+
+library(future)
+plan()
+plan("multisession", workers = 4)
+
 combined_seurat_filter <- Reselute_clusters_slm(combined_seurat_filter, resolution)
+
+# 通过gusb函数替换含有"SCT_snn_res"的列名
+colnames(combined_seurat_filter@meta.data) <-
+  gsub(
+    "RNA_snn_res.",
+    "ft_RNA_snn_scvi_slm_res.",
+    colnames(combined_seurat_filter@meta.data)
+  )
+colnames(combined_seurat_filter@meta.data)
+
 #合并
 combined_seurat_filter[["RNA"]]  <- JoinLayers(combined_seurat_filter[["RNA"]])
+save.dir <- "SeuratObjects"
 library(loupeR)
 create_loupe_from_seurat(
   combined_seurat_filter,
@@ -208,7 +283,8 @@ save(
     ".RData"
   )
 )
-
+gen_file_overview("SeuratObjects")
+View(maartenutils::gen_file_overview("SeuratObjects"))
 # List of resolution values to loop over
 res_values <-resolution
   
@@ -233,7 +309,7 @@ for (res in res_values) {
   }
 }
 str(combined_seurat_filter@meta.data)
-
+colnames(combined_seurat_filter@meta.data)
 tree_cluster <-
   function(combined_seurat,
            prefix,
@@ -260,8 +336,20 @@ tree_cluster <-
     return(p_cluster)
   }
 
-p_cluster_muti_louvain <- tree_cluster(combined_seurat_filter,
+p_cluster_muti_slm <- tree_cluster(combined_seurat_filter,
                                        prefix = "ft_RNA_snn_scvi_slm_res.",
                                        width = 25,
                                        height = 16
 )
+p_cluster_muti_louvein <- tree_cluster(combined_seurat_filter,
+                                       prefix = "ft_RNA_snn_scvi_louv_res.",
+                                       width = 25,
+                                       height = 16
+)
+View(maartenutils::gen_file_overview("SeuratObjects"))
+load("SeuratObjects/2024-03-21-15-27combined_seurat_filter_combinedN6_reselute_clusters_slm.RData")
+ls()
+
+str(combined_seurat_filter,max.level = 3)
+Layers(combined_seurat_filter)
+memory.size()
