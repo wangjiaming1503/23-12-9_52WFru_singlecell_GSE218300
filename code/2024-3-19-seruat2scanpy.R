@@ -2,7 +2,7 @@
 library(Seurat)
 library(SeuratWrappers)
 library(tidyverse)
-# library(SeuratDisk)
+library(SeuratDisk)
 setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
 View(maartenutils::gen_file_overview("SeuratObjects"))
 load(

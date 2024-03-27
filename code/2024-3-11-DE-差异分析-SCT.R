@@ -11,7 +11,7 @@ setwd("/home/rstudio/work/23-12-9_52WFru_singlecell_GSE218300")
 
 detable_MouseRNA_SCT <-
   read_csv(
-    "SeuratObjects/2024-3-11-MouseRNA_SingleR.labels Features-remove-1-chow-for-granulocyte-SCT-all.csv",
+    "2024年3月27日active_cluster Features.csv",
     comment = "#"
   )
 
@@ -108,7 +108,7 @@ colnames(detable_MouseRNA_SCT)
 
 volcano_plot_func(
   detable_data = detable_MouseRNA_SCT,
-  highlight_gene = c("Lcn2", "Spp1"),
+  highlight_gene = c("Lcn2"),
   cell_type = "Hepatocytes"
 )
 
