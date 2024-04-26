@@ -181,3 +181,4 @@ create_loupe_from_seurat(
   )
 )
 
+View(maartenutils::gen_file_overview("SeuratObjects"))
